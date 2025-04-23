@@ -1,12 +1,18 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+# from app.config.env_config import settings
 from app.api.v1.attempt.attempt_model import AttemptREQ, AttemptRES
+from app.app_dependency import get_env_service
+from app.common.services.env_service import EnvService
 
 
 router = APIRouter()
 
 @router.post("/test", response_model=AttemptRES)
-def register_user(request: AttemptREQ):
+def register_user(
+    request: AttemptREQ, 
+    env_service: EnvService = Depends(get_env_service)
+):
     return AttemptRES(
-        name = request.name
+        name = env_service.settings.ENVIRONMENT
     )
