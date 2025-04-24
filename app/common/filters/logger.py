@@ -1,29 +1,28 @@
-import time
 import json
+import time
 
-from fastapi import Depends, Request, Response
+from fastapi import Request, Response
 
-from app.app_dependency import get_logging_service
-from app.common.services.logging_service import LoggingService
+from app.app_dependency import get_env_service, get_logging_service
+
 
 async def log_filter(
-    request: Request, 
+    request: Request,
     call_next,
-):    
+):
+    env = get_env_service()
     logger = get_logging_service()
 
     # Read the request body (can only be done once unless we reset it)
     body = await request.body()
 
     try:
-        # Try to parse and pretty-print as one-liner JSON
-        body_json = json.loads(body.decode("utf-8"))
-        body_str = json.dumps(body_json, separators=(",", ":"))
+        body_json: dict = {"uri": request.url.path } | json.loads(body.decode("utf-8"))
+        body_str = json.dumps(body_json) if env.settings.ENVIRONMENT == "prd" else json.dumps(body_json, indent=4)
     except Exception:
-        # If it's not JSON, just fallback to plain string
         body_str = body.decode("utf-8")
 
-    logger.info(f"({request.method}) -> {request.url}")
+    logger.info(f"(STA) -> ({request.method}) {request.url}")
     logger.info(f"(REQ) -- {body_str}")
 
     # Rebuild the request stream so the endpoint can still read it
@@ -35,18 +34,24 @@ async def log_filter(
     duration = time.time() - start_time
 
     # Read response body
-    response_body = b""
+    res = b""
     async for chunk in response.body_iterator:
-        response_body += chunk
+        res += chunk
+
+    try:
+        res_json = json.loads(res.decode("utf-8"))
+        res_str = json.dumps(res_json) if env.settings.ENVIRONMENT == "prd" else json.dumps(res_json, indent=4)
+    except Exception:
+        res_str = res.decode("utf-8")
 
     # Log the response
-    logger.info(f"(RES) -- {response_body.decode('utf-8')}")
-    logger.info(f"({request.method}) <- {duration:.4f}s")
+    logger.info(f"(RES) -- {res_str}")
+    logger.info(f"(END) <- {duration:.4f}s")
 
     # Rebuild and return the response with the same body
     return Response(
-        content=response_body,
+        content=res,
         status_code=response.status_code,
         headers=dict(response.headers),
-        media_type=response.media_type
+        media_type=response.media_type,
     )

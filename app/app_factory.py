@@ -1,13 +1,10 @@
-import os
-
-from dotenv import load_dotenv
-
 from fastapi import FastAPI
 
-from app.app_dependency import get_logging_service
-from app.config.env_config import Settings
 from app.api.v1 import api_router
+from app.app_dependency import get_logging_service
 from app.common.filters import logger, modeller
+from app.config.env_config import Settings
+
 
 def create_app(settings: Settings) -> FastAPI:
     logging_service = get_logging_service()
@@ -20,8 +17,8 @@ def create_app(settings: Settings) -> FastAPI:
     )
 
     # Register middleware
-    app.middleware("http")(logger.log_filter)
     app.middleware("http")(modeller.model_filter)
+    app.middleware("http")(logger.log_filter)
 
     # Register routers
     app.include_router(api_router.router, prefix="/api/v1")

@@ -1,15 +1,19 @@
 import logging
-from colorama import init, Fore, Style
+
+from colorama import Fore, Style, init
+
 
 # Initialize colorama for cross-platform coloring
 init(autoreset=True)
 
+
 class LoggingService:
-    def __init__(self, name: str = "app"):
+    def __init__(self, name: str = "App", is_debug: bool = False):
         self.logger = logging.getLogger(name)
         self.formatter = logging.Formatter(
-            f"{Fore.CYAN}[%(levelname)s]{Style.RESET_ALL} %(message)s"
+            f"{Fore.CYAN}[%(levelname)s]{Style.RESET_ALL} %(message)s",
         )
+        self.is_debug = is_debug
 
         self._configure_logger()
 
@@ -19,7 +23,7 @@ class LoggingService:
             handler.setFormatter(self.formatter)
 
             self.logger.addHandler(handler)
-            self.logger.setLevel(logging.DEBUG)
+            self.logger.setLevel(logging.DEBUG if self.is_debug else logging.INFO)
 
             access_logger = logging.getLogger("uvicorn.access")
             access_logger.handlers.clear()

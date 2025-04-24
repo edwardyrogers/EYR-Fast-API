@@ -3,6 +3,4 @@ from app.app_factory import create_app
 
 env = get_env_service()
 settings = env.load()
-app = create_app(
-    settings = settings
-)
+app = create_app(settings=settings)
