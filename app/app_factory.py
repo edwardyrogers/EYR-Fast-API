@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from app.api.v1 import api_router
 from app.app_dependency import get_logging_service
-from app.common.filters import logger, modeller
+from app.common.middlewares import logger, modeller
 from app.config.env_config import Settings
 
 
@@ -17,8 +17,8 @@ def create_app(settings: Settings) -> FastAPI:
     )
 
     # Register middleware
-    app.middleware("http")(modeller.model_filter)
-    app.middleware("http")(logger.log_filter)
+    app.middleware("http")(modeller.model_middleware)
+    app.middleware("http")(logger.log_middleware)
 
     # Register routers
     app.include_router(api_router.router, prefix="/api/v1")
