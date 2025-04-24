@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Callable
+from typing import Callable, Dict
 
 from fastapi import Request, Response
 
@@ -17,7 +17,7 @@ async def log_middleware(request: Request, call_next: Callable):
 
     try:
         # Parse and combine the original request body with URI info
-        body_json: dict = json.loads(body.decode("utf-8"))
+        body_json: Dict = json.loads(body.decode("utf-8"))
         body_str = (
             json.dumps(body_json)  # Pretty print for prod vs dev
             if env.settings.ENVIRONMENT == "prd"
