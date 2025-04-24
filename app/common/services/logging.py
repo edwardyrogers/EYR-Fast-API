@@ -2,7 +2,6 @@ import logging
 
 from colorama import Fore, Style, init
 
-
 # Initialize colorama for cross-platform coloring
 init(autoreset=True)
 

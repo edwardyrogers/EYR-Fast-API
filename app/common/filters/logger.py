@@ -17,8 +17,12 @@ async def log_filter(
     body = await request.body()
 
     try:
-        body_json: dict = {"uri": request.url.path } | json.loads(body.decode("utf-8"))
-        body_str = json.dumps(body_json) if env.settings.ENVIRONMENT == "prd" else json.dumps(body_json, indent=4)
+        body_json: dict = {"uri": request.url.path} | json.loads(body.decode("utf-8"))
+        body_str = (
+            json.dumps(body_json)
+            if env.settings.ENVIRONMENT == "prd"
+            else json.dumps(body_json, indent=4)
+        )
     except Exception:
         body_str = body.decode("utf-8")
 
@@ -40,7 +44,11 @@ async def log_filter(
 
     try:
         res_json = json.loads(res.decode("utf-8"))
-        res_str = json.dumps(res_json) if env.settings.ENVIRONMENT == "prd" else json.dumps(res_json, indent=4)
+        res_str = (
+            json.dumps(res_json)
+            if env.settings.ENVIRONMENT == "prd"
+            else json.dumps(res_json, indent=4)
+        )
     except Exception:
         res_str = res.decode("utf-8")
 
