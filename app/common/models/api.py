@@ -30,7 +30,11 @@ class ApiRequest(BaseModel, Generic[T]):
     payload: T
 
     def to_json(self) -> Dict[str, Any]:
-        return {"meta": self.meta.to_json(), "payload": self.payload.dict()}
+        return {
+            "meta": self.meta.to_json(), 
+            "payload": self.payload.model_dump()
+        }
+    
 
     @classmethod
     def from_json(

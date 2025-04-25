@@ -4,7 +4,6 @@ from typing import Callable, Dict
 from fastapi import Request, Response
 
 
-
 async def model_middleware(request: Request, call_next: Callable):
     # Step 1: Read and parse the original request body
     try:
