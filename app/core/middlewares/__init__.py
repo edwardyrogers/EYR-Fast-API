@@ -1,2 +1,2 @@
-from .logger import log_middleware
-from .modeller import model_middleware
+from .log_middleware import log_middleware
+from .model_middleware import model_middleware

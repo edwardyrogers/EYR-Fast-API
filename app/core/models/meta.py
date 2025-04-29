@@ -22,25 +22,3 @@ class Meta(BaseModel):
     def from_json(cls, source: Dict[str, Any]) -> "Meta":
         """Create a MetaData instance from a dictionary."""
         return cls(**source)
-
-
-# Define the generic request model
-class ApiRequest(BaseModel, Generic[T]):
-    meta: Meta
-    payload: T
-
-    def to_json(self) -> Dict[str, Any]:
-        return {
-            "meta": self.meta.to_json(), 
-            "payload": self.payload.model_dump()
-        }
-    
-
-    @classmethod
-    def from_json(
-        cls, source: Dict[str, Any], payload_type: type[T]
-    ) -> "ApiRequest[T]":
-        return cls(
-            meta=Meta.from_json(source["meta"]),
-            payload=payload_type(**source["payload"]),
-        )

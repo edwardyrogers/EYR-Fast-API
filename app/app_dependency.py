@@ -1,7 +1,6 @@
 from functools import lru_cache
 
-from app.common.services.env import EnvService
-from app.common.services.logging import LoggingService
+from app.common.services import EnvService, LoggingService
 
 
 @lru_cache()

@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from app.config.env_config import Settings
+from app.config import Settings
 
 
 class EnvService:
