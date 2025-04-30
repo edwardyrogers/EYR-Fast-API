@@ -23,9 +23,9 @@ class LongTermMemoryCortex(MemoryCortex):
 
     def forget(self, key=None):
         if key:
-            self.data_store.pop(key, None)
+            self.data_store.data.pop(key, None)
         else:
-            self.data_store.clear()
+            self.data_store.data.clear()
 
     def update(self, key, data):
         self.data_store[key] = data

@@ -30,7 +30,7 @@ class ProceduralMemoryCortex(MemoryCortex):
         if key:
             self.workflow_store.delete(key)
         else:
-            self.workflow_store.workflows.clear()
+            self.workflow_store.vector_store.clear()
 
     def update(self, key: str, data: str):
         self.workflow_store.update(key, data)

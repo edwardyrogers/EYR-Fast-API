@@ -27,7 +27,7 @@ class PersonalMemoryCortex(MemoryCortex):
         if key:
             self.data_store.delete(key)
         else:
-            self.data_store.profile.clear()
+            self.data_store.data.clear()
 
     def update(self, key, data):
         self.data_store.update(key, data)
