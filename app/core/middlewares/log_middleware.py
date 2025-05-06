@@ -19,9 +19,9 @@ async def log_middleware(request: Request, call_next: Callable):
         # Parse and combine the original request body with URI info
         body_json: Dict = json.loads(body.decode("utf-8"))
         body_str = (
-            json.dumps(body_json)  # Pretty print for prod vs dev
+            json.dumps(body_json, ensure_ascii=False)  # Pretty print for prod vs dev
             if env.settings.ENVIRONMENT == "prd"
-            else json.dumps(body_json, indent=4)
+            else json.dumps(body_json, indent=4, ensure_ascii=False)
         )
     except Exception:
         # If body can't be decoded, log raw body
@@ -48,9 +48,9 @@ async def log_middleware(request: Request, call_next: Callable):
         # Combine response body with URI info
         res_json = json.loads(res.decode("utf-8"))
         res_str = (
-            json.dumps(res_json)  # Pretty print for prod vs dev
+            json.dumps(res_json, ensure_ascii=False)  # Pretty print for prod vs dev
             if env.settings.ENVIRONMENT == "prd"
-            else json.dumps(res_json, indent=4)
+            else json.dumps(res_json, indent=4, ensure_ascii=False)
         )
     except Exception:
         # If response can't be decoded, log raw body
