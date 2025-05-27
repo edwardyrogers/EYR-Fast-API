@@ -1,7 +1,12 @@
+import inspect
 import json
 from typing import Callable, Dict
 
 from fastapi import Request, Response
+from fastapi.routing import APIRoute
+from pydantic import BaseModel
+
+from app.core.exceptions import ApiException
 
 
 async def model_middleware(request: Request, call_next: Callable):
@@ -38,6 +43,37 @@ async def model_middleware(request: Request, call_next: Callable):
     # Step 3: Get response from the next middleware or route
     response = await call_next(request)
 
+    headers: Dict[str, str] = dict(response.headers)
+    headers.pop("content-length", None)  # Let FastAPI recalculate content-length
+    
+    route: APIRoute = request.scope.get("route")
+     
+    if isinstance(route, APIRoute):
+        response_model = route.response_model
+        if response_model is not None:
+            # Check if response_model is NOT a subclass of BaseModel
+            if not inspect.isclass(response_model) or not issubclass(response_model, BaseModel):
+                wrapped_response: Dict[str, any] = (
+                    {  # Create a wrapped response with 'meta' and 'payload'
+                        "meta": original_json.get("meta", {}),
+                        "payload": {
+                            "code": "",
+                            "message": f"Route {request.url.path} uses an invalid response model: {response_model}",
+                            "stacktrace": None,            
+                        },
+                    }
+                )
+                modified_content: bytes = json.dumps(wrapped_response).encode(
+                    "utf-8"
+                )
+                return Response(
+                    content=modified_content,
+                    status_code=response.status_code,
+                    headers=headers,
+                    media_type=response.media_type,
+                )
+
+
     # Step 4: Read the response body and wrap it with original metadata
     response_body: bytes = b""
     async for chunk in response.body_iterator:
@@ -61,13 +97,9 @@ async def model_middleware(request: Request, call_next: Callable):
         return Response(
             content=response_body,
             status_code=response.status_code,
-            headers=dict(response.headers),
+            headers=headers,
             media_type=response.media_type,
         )
-
-    # Step 5: Return final wrapped response with updated headers
-    headers: Dict[str, str] = dict(response.headers)
-    headers.pop("content-length", None)  # Let FastAPI recalculate content-length
 
     return Response(
         content=modified_content,
