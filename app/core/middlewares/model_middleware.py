@@ -1,99 +1,78 @@
-import inspect
 import json
-from typing import Callable, Dict
+import inspect
+from typing import Callable, Union, get_args, get_origin
 
 from fastapi import Request, Response
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 
-from app.core.exceptions import ApiException
-
 
 async def model_middleware(request: Request, call_next: Callable):
-    # Step 1: Read and parse the original request body
+    # Step 1: Try to parse request body
     try:
-        original_body: bytes = await request.body()  # `body()` returns bytes
-        original_json: Dict = json.loads(
-            original_body.decode("utf-8")
-        )  # Parsed body as dict
-        new_data: Dict = original_json.get("payload", {})  # Extract the 'payload' key
-        new_body: bytes = json.dumps(new_data).encode(
-            "utf-8"
-        )  # Convert the 'payload' into a new body
-
-    except (json.JSONDecodeError, KeyError, TypeError) as e:
-        # If the body is invalid, return a 400 error response with an error message
+        body_bytes = await request.body()
+        original_json = json.loads(body_bytes.decode("utf-8"))
+        payload = original_json.get("payload", {})
+        meta = original_json.get("meta", {})
+        new_body_bytes = json.dumps(payload).encode("utf-8")
+    except (json.JSONDecodeError, KeyError, TypeError):
         return Response(
-            content=b'{"error": "Invalid JSON payload"}',
+            content=json.dumps({"error": "Invalid JSON payload"}),
             status_code=400,
             media_type="application/json",
         )
 
-    # Step 2: Inject modified body back into request
-    async def receive() -> Dict[str, any]:  # Define return type for receive function
+    # Step 2: Override the request body
+    async def receive():
         return {
             "type": "http.request",
-            "body": new_body,
+            "body": new_body_bytes,
             "more_body": False,
         }
 
-    request._receive = receive  # Inject the custom receive function
-    request._body = new_body  # Set the new body in case it's read again
+    request._receive = receive
+    request._body = new_body_bytes
 
-    # Step 3: Get response from the next middleware or route
+    # Step 3: Process the request through the route
     response = await call_next(request)
+    headers = dict(response.headers)
+    headers.pop("content-length", None)  # Let FastAPI recalculate it
 
-    headers: Dict[str, str] = dict(response.headers)
-    headers.pop("content-length", None)  # Let FastAPI recalculate content-length
+    route = request.scope.get("route")
     
-    route: APIRoute = request.scope.get("route")
-     
-    if isinstance(route, APIRoute):
-        response_model = route.response_model
-        if response_model is not None:
-            # Check if response_model is NOT a subclass of BaseModel
-            if not inspect.isclass(response_model) or not issubclass(response_model, BaseModel):
-                wrapped_response: Dict[str, any] = (
-                    {  # Create a wrapped response with 'meta' and 'payload'
-                        "meta": original_json.get("meta", {}),
-                        "payload": {
-                            "code": "",
-                            "message": f"Route {request.url.path} uses an invalid response model: {response_model}",
-                            "stacktrace": None,            
-                        },
-                    }
-                )
-                modified_content: bytes = json.dumps(wrapped_response).encode(
-                    "utf-8"
-                )
-                return Response(
-                    content=modified_content,
-                    status_code=response.status_code,
-                    headers=headers,
-                    media_type=response.media_type,
-                )
+    if isinstance(route, APIRoute) and not is_valid_response_model(route.response_model, route.endpoint):
+        error_response = {
+            "meta": meta,
+            "payload": {
+                "code": "",
+                "message": f"Route {request.url.path} uses an invalid response model: {route.response_model}",
+                "stacktrace": None,
+            },
+        }
+        return Response(
+            content=json.dumps(error_response).encode("utf-8"),
+            status_code=response.status_code,
+            headers=headers,
+            media_type="application/json",
+        )
 
-
-    # Step 4: Read the response body and wrap it with original metadata
-    response_body: bytes = b""
-    async for chunk in response.body_iterator:
-        response_body += chunk
+    # Step 4: Read and wrap the response body
+    body_chunks = [chunk async for chunk in response.body_iterator]
+    response_body = b"".join(body_chunks)
 
     try:
-        response_data: Dict = json.loads(
-            response_body.decode("utf-8")
-        )  # Parse response as JSON
-        wrapped_response: Dict[str, any] = (
-            {  # Create a wrapped response with 'meta' and 'payload'
-                "meta": original_json.get("meta", {}),
-                "payload": response_data,
-            }
+        response_data = json.loads(response_body.decode("utf-8"))
+        wrapped_response = {
+            "meta": meta,
+            "payload": response_data,
+        }
+        return Response(
+            content=json.dumps(wrapped_response).encode("utf-8"),
+            status_code=response.status_code,
+            headers=headers,
+            media_type="application/json",
         )
-        modified_content: bytes = json.dumps(wrapped_response).encode(
-            "utf-8"
-        )  # Re-encode as JSON
     except json.JSONDecodeError:
-        # If the response is not JSON, pass through the original response body
         return Response(
             content=response_body,
             status_code=response.status_code,
@@ -101,9 +80,17 @@ async def model_middleware(request: Request, call_next: Callable):
             media_type=response.media_type,
         )
 
-    return Response(
-        content=modified_content,
-        status_code=response.status_code,
-        headers=headers,
-        media_type="application/json",
-    )
+
+def is_valid_response_model(model, endpoint):
+    if model is None:
+        return False
+    if inspect.isclass(model) and issubclass(model, BaseModel):
+        return True
+    elif get_origin(model) is Union:
+        return all(
+            inspect.isclass(arg) and issubclass(arg, BaseModel)
+            for arg in get_args(model)
+        )
+    else:
+        return False
+
